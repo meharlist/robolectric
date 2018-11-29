@@ -34,12 +34,6 @@ public class BootstrapDeferringRobolectricTestRunner extends RobolectricTestRunn
     return MyTestLifecycle.class;
   }
 
-  @Override
-  ParallelUniverseInterface getHooksInterface(SdkEnvironment sdkEnvironment) {
-    bootstrapWrapper = new BootstrapWrapper(super.getHooksInterface(sdkEnvironment));
-    return bootstrapWrapper;
-  }
-
   @Nonnull
   @Override
   protected InstrumentationConfiguration createClassLoaderConfig(FrameworkMethod method) {

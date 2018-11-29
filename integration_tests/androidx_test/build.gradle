@@ -42,3 +42,27 @@ dependencies {
     testImplementation("com.google.truth:truth:0.42")
 
 }
+
+configurations {
+    sdkO
+    sdkP
+}
+
+dependencies {
+    sdkO 'org.robolectric:android-all:8.1.0-robolectric-4611349'
+    sdkP 'org.robolectric:android-all:9-robolectric-4913185-2'
+
+    testImplementation configurations.sdkO
+    testImplementation configurations.sdkP
+}
+
+//tests {
+//    dependsOn libs
+//}
+
+task libs(type: Sync) {
+    from configurations.sdkO
+    from configurations.sdkP
+
+    into "$buildDir/libs"
+}
