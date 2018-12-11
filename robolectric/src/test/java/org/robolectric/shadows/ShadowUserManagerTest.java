@@ -34,6 +34,12 @@ public class ShadowUserManagerTest {
   private UserManager userManager;
   private Context context;
 
+  private static final int TEST_USER_HANDLE = 0;
+  private static final int TEST_USER_HANDLE_2 = 1;
+  private static final int PROFILE_USER_HANDLE = 2;
+  private static final String PROFILE_USER_NAME = "profile";
+  private static final int PROFILE_USER_FLAGS = 0;
+
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
@@ -333,6 +339,30 @@ public class ShadowUserManagerTest {
     } catch (UnsupportedOperationException e) {
       assertThat(e).hasMessageThat().isEqualTo("Must add user before switching to it");
     }
+  }
+
+  @Test
+  @Config(minSdk = LOLLIPOP)
+  public void getProfiles_isEmpty() {
+    assertThat(userManager.getProfiles(TEST_USER_HANDLE)).isEmpty();
+  }
+
+  @Test
+  @Config(minSdk = LOLLIPOP)
+  public void getProfiles_addedProfile_containsProfile() {
+    shadowOf(userManager).addProfile(
+        TEST_USER_HANDLE, PROFILE_USER_HANDLE, PROFILE_USER_NAME, PROFILE_USER_FLAGS);
+
+    assertThat(userManager.getProfiles(TEST_USER_HANDLE).get(0).id).isEqualTo(PROFILE_USER_HANDLE);
+  }
+
+  @Test
+  @Config(minSdk = LOLLIPOP)
+  public void getProfiles_addedProfileDifferentUser_isEmpty() {
+    shadowOf(userManager).addProfile(
+        TEST_USER_HANDLE_2, PROFILE_USER_HANDLE, PROFILE_USER_NAME, PROFILE_USER_FLAGS);
+
+    assertThat(userManager.getProfiles(TEST_USER_HANDLE)).isEmpty();
   }
 
   // Create user handle from parcel since UserHandle.of() was only added in later APIs.

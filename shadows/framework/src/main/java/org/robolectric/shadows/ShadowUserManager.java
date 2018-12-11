@@ -21,6 +21,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,7 @@ public class ShadowUserManager {
   private long nextUserSerial = 0;
   private Map<Integer, UserState> userState = new HashMap<>();
   private Map<Integer, UserInfo> userInfoMap = new HashMap<>();
+  Map<Integer, List<UserInfo>> profiles = new HashMap<>();
 
   private Context context;
   private boolean enforcePermissions;
@@ -104,6 +106,17 @@ public class ShadowUserManager {
   @Implementation(minSdk = LOLLIPOP)
   protected List<UserHandle> getUserProfiles() {
     return ImmutableList.copyOf(userProfiles.keySet());
+  }
+
+  @Implementation(minSdk = LOLLIPOP)
+  protected List<UserInfo> getProfiles(int userHandle) {
+    return ImmutableList.copyOf(profiles.getOrDefault(userHandle, Collections.emptyList()));
+  }
+
+  /** Add a profile to be returned by {@link #getProfiles(int)}.**/
+  public void addProfile(int userHandle, int profileUserHandle, String profileName, int profileFlags) {
+    profiles.putIfAbsent(userHandle, new ArrayList<>());
+    profiles.get(userHandle).add(new UserInfo(profileUserHandle, profileName, profileFlags));
   }
 
   @Implementation(minSdk = N)
