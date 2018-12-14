@@ -104,6 +104,7 @@ import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
 import org.robolectric.shadow.api.Shadow;
 
+/** Shadows {@link android.app.ApplicationPackageManager}. */
 @Implements(value = ApplicationPackageManager.class, isInAndroidSdk = false, looseSignatures = true)
 public class ShadowApplicationPackageManager extends ShadowPackageManager {
 
@@ -318,7 +319,9 @@ public class ShadowApplicationPackageManager extends ShadowPackageManager {
       return null;
     }
     for (PackageInfo packageInfo : packageInfos.values()) {
-      if (packageInfo.providers == null) continue;
+      if (packageInfo.providers == null) {
+        continue;
+      }
 
       for (ProviderInfo providerInfo : packageInfo.providers) {
         if (name.equals(providerInfo.authority)) { // todo: support multiple authorities
@@ -1436,9 +1439,10 @@ public class ShadowApplicationPackageManager extends ShadowPackageManager {
     return null;
   }
 
+  /** Behaves as {@link #resolveActivity(Intent, int)} and currently ignores userId. */
   @Implementation(minSdk = JELLY_BEAN_MR1)
   protected ResolveInfo resolveActivityAsUser(Intent intent, int flags, int userId) {
-    return null;
+    return resolveActivity(intent, flags);
   }
 
   @Implementation
