@@ -2,6 +2,7 @@ package org.robolectric.shadows;
 
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+import static android.os.Build.VERSION_CODES.KITKAT;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
@@ -24,6 +25,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.UserHandle;
 import android.view.LayoutInflater;
 import android.view.View;
 import androidx.test.core.app.ApplicationProvider;
@@ -47,6 +49,8 @@ public class ShadowContextWrapperTest {
 
   private final Context context = ApplicationProvider.getApplicationContext();
   private final ShadowContextWrapper shadowContextWrapper = Shadow.extract(context);
+
+  private static final UserHandle USER_HANDLE = UserHandle.getUserHandleForUid(1);
 
   @Before public void setUp() throws Exception {
     transcript = new ArrayList<>();
@@ -146,6 +150,27 @@ public class ShadowContextWrapperTest {
 
     final FooReceiver resultReceiver = new FooReceiver();
     contextWrapper.sendOrderedBroadcast(new Intent(action), null, resultReceiver, null, 1, "initial", null);
+    assertThat(transcript).containsExactly("High notified of test", "Low notified of test");
+    assertThat(resultReceiver.resultCode).isEqualTo(1);
+  }
+
+  @Test
+  @Config(minSdk = KITKAT)
+  public void sendOrderedBroadcastAsUser_shouldReturnValues() throws Exception {
+    String action = "test";
+
+    IntentFilter lowFilter = new IntentFilter(action);
+    lowFilter.setPriority(1);
+    BroadcastReceiver lowReceiver = broadcastReceiver("Low");
+    contextWrapper.registerReceiver(lowReceiver, lowFilter);
+
+    IntentFilter highFilter = new IntentFilter(action);
+    highFilter.setPriority(2);
+    BroadcastReceiver highReceiver = broadcastReceiver("High");
+    contextWrapper.registerReceiver(highReceiver, highFilter);
+
+    final FooReceiver resultReceiver = new FooReceiver();
+    contextWrapper.sendOrderedBroadcastAsUser(new Intent(action), USER_HANDLE, null, resultReceiver, null, 1, "initial", null);
     assertThat(transcript).containsExactly("High notified of test", "Low notified of test");
     assertThat(resultReceiver.resultCode).isEqualTo(1);
   }

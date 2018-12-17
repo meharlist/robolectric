@@ -179,6 +179,29 @@ public class ShadowContextImpl {
             realContextImpl);
   }
 
+  /** Behaves as {@link #sendOrderedBroadcast(Intent, String, BroadcastReceiver, Handler, int, String, Bundle)} and currently ignores userId. */
+  @Implementation(minSdk = KITKAT)
+  protected void sendOrderedBroadcastAsUser(
+      Intent intent,
+      UserHandle userHandle,
+      String receiverPermission,
+      BroadcastReceiver resultReceiver,
+      Handler scheduler,
+      int initialCode,
+      String initialData,
+      Bundle initialExtras) {
+    sendOrderedBroadcast(
+        intent,
+        receiverPermission,
+        resultReceiver,
+        scheduler,
+        initialCode,
+        initialData,
+        initialExtras
+    );
+  }
+
+
   @Implementation
   protected void sendStickyBroadcast(Intent intent) {
     getShadowInstrumentation().sendStickyBroadcast(intent, realContextImpl);
