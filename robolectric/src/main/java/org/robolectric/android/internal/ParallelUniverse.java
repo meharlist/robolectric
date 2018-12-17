@@ -4,12 +4,12 @@ import static android.location.LocationManager.GPS_PROVIDER;
 import static android.os.Build.VERSION_CODES.P;
 import static org.robolectric.shadow.api.Shadow.newInstanceOf;
 import static org.robolectric.util.ReflectionHelpers.ClassParameter.from;
+import static org.robolectric.util.ReflectionHelpers.accessorFor;
 
 import android.annotation.SuppressLint;
 import android.app.ActivityThread;
 import android.app.Application;
 import android.app.IInstrumentationWatcher;
-import android.app.IUiAutomationConnection;
 import android.app.Instrumentation;
 import android.app.LoadedApk;
 import android.content.BroadcastReceiver;
@@ -62,6 +62,8 @@ import org.robolectric.shadows.ShadowPackageManager;
 import org.robolectric.shadows.ShadowPackageParser;
 import org.robolectric.util.PerfStatsCollector;
 import org.robolectric.util.ReflectionHelpers;
+import org.robolectric.util.ReflectionHelpers.ForType;
+import org.robolectric.util.ReflectionHelpers.WithType;
 import org.robolectric.util.Scheduler;
 import org.robolectric.util.TempDirectory;
 
@@ -80,6 +82,10 @@ public class ParallelUniverse implements ParallelUniverseInterface {
   @Override
   public void setResourcesMode(boolean legacyResources) {
     RuntimeEnvironment.setUseLegacyResources(legacyResources);
+  }
+
+  private interface _ContextImpl_ {
+    void setOuterContext(Context context);
   }
 
   @Override
@@ -218,10 +224,7 @@ public class ParallelUniverse implements ParallelUniverseInterface {
             .setField(ActivityThread.class, activityThread, "mInitialApplication", application);
         ShadowApplication shadowApplication = Shadow.extract(application);
         shadowApplication.callAttach(contextImpl);
-        ReflectionHelpers.callInstanceMethod(
-            contextImpl,
-            "setOuterContext",
-            ReflectionHelpers.ClassParameter.from(Context.class, application));
+        accessorFor(_ContextImpl_.class, contextImpl).setOuterContext(application);
       } catch (PackageManager.NameNotFoundException e) {
         throw new RuntimeException(e);
       }
@@ -326,6 +329,21 @@ public class ParallelUniverse implements ParallelUniverseInterface {
     }
   }
 
+  @ForType(Instrumentation.class)
+  private interface _Instrumentation_ {
+    // <= JELLY_BEAN_MR1:
+    void init(ActivityThread thread,
+        Context instrContext, Context appContext, ComponentName component,
+        IInstrumentationWatcher watcher);
+
+    // > JELLY_BEAN_MR1:
+    void init(ActivityThread thread,
+        Context instrContext, Context appContext, ComponentName component,
+        IInstrumentationWatcher watcher,
+        @WithType("android.app.IUiAutomationConnection")
+        Object uiAutomationConnection);
+  }
+
   private static Instrumentation createInstrumentation(
       ActivityThread activityThread,
       ApplicationInfo applicationInfo, Application application) {
@@ -336,21 +354,11 @@ public class ParallelUniverse implements ParallelUniverseInterface {
         new ComponentName(
             applicationInfo.packageName, androidInstrumentation.getClass().getSimpleName());
     if (RuntimeEnvironment.getApiLevel() <= VERSION_CODES.JELLY_BEAN_MR1) {
-      ReflectionHelpers.callInstanceMethod(androidInstrumentation, "init",
-          from(ActivityThread.class, activityThread),
-          from(Context.class, application),
-          from(Context.class, application),
-          from(ComponentName.class, component),
-          from(IInstrumentationWatcher.class, null));
+      accessorFor(_Instrumentation_.class, androidInstrumentation)
+          .init(activityThread, application, application, component, null);
     } else {
-      ReflectionHelpers.callInstanceMethod(androidInstrumentation,
-          "init",
-          from(ActivityThread.class, activityThread),
-          from(Context.class, application),
-          from(Context.class, application),
-          from(ComponentName.class, component),
-          from(IInstrumentationWatcher.class, null),
-          from(IUiAutomationConnection.class, null));
+      accessorFor(_Instrumentation_.class, androidInstrumentation)
+          .init(activityThread, application, application, component, null, null);
     }
 
     return androidInstrumentation;

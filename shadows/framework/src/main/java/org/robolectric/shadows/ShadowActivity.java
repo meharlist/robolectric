@@ -4,8 +4,8 @@ import static android.os.Build.VERSION_CODES.JELLY_BEAN;
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static android.os.Build.VERSION_CODES.M;
 import static org.robolectric.shadow.api.Shadow.directlyOn;
+import static org.robolectric.util.ReflectionHelpers.accessorFor;
 
-import android.R;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityThread;
@@ -47,7 +47,10 @@ import org.robolectric.annotation.RealObject;
 import org.robolectric.fakes.RoboMenuItem;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.util.ReflectionHelpers;
+import org.robolectric.util.ReflectionHelpers.ForType;
+import org.robolectric.util.ReflectionHelpers.WithType;
 
+@SuppressWarnings("NewApi")
 @Implements(Activity.class)
 public class ShadowActivity extends ShadowContextThemeWrapper {
 
@@ -78,139 +81,26 @@ public class ShadowActivity extends ShadowContextThemeWrapper {
   }
 
   public void callAttach(Intent intent) {
-    int apiLevel = RuntimeEnvironment.getApiLevel();
     Application application = RuntimeEnvironment.application;
-    Context baseContext = RuntimeEnvironment.application.getBaseContext();
-    Class<?> nonConfigurationInstancesClass = getNonConfigurationClass();
+    Context baseContext = application.getBaseContext();
 
     ActivityInfo activityInfo;
     try {
-      activityInfo = application.getPackageManager().getActivityInfo(new ComponentName(application.getPackageName(), realActivity.getClass().getName()), PackageManager.GET_ACTIVITIES | PackageManager.GET_META_DATA);
+      activityInfo = application.getPackageManager().getActivityInfo(
+          new ComponentName(application.getPackageName(), realActivity.getClass().getName()),
+          PackageManager.GET_ACTIVITIES | PackageManager.GET_META_DATA);
     } catch (NameNotFoundException e) {
       throw new RuntimeException(e);
     }
 
     CharSequence activityTitle = activityInfo.loadLabel(baseContext.getPackageManager());
 
-    Instrumentation instrumentation =
-        ((ActivityThread) RuntimeEnvironment.getActivityThread()).getInstrumentation();
-    if (apiLevel <= Build.VERSION_CODES.KITKAT) {
-      ReflectionHelpers.callInstanceMethod(
-          Activity.class,
-          realActivity,
-          "attach",
-          ReflectionHelpers.ClassParameter.from(Context.class, baseContext),
-          ReflectionHelpers.ClassParameter.from(
-              ActivityThread.class, RuntimeEnvironment.getActivityThread()),
-          ReflectionHelpers.ClassParameter.from(Instrumentation.class, instrumentation),
-          ReflectionHelpers.ClassParameter.from(IBinder.class, null),
-          ReflectionHelpers.ClassParameter.from(int.class, 0),
-          ReflectionHelpers.ClassParameter.from(Application.class, application),
-          ReflectionHelpers.ClassParameter.from(Intent.class, intent),
-          ReflectionHelpers.ClassParameter.from(ActivityInfo.class, activityInfo),
-          ReflectionHelpers.ClassParameter.from(CharSequence.class, activityTitle),
-          ReflectionHelpers.ClassParameter.from(Activity.class, null),
-          ReflectionHelpers.ClassParameter.from(String.class, "id"),
-          ReflectionHelpers.ClassParameter.from(nonConfigurationInstancesClass, null),
-          ReflectionHelpers.ClassParameter.from(
-              Configuration.class, application.getResources().getConfiguration()));
-    } else if (apiLevel <= Build.VERSION_CODES.LOLLIPOP) {
-      ReflectionHelpers.callInstanceMethod(
-          Activity.class,
-          realActivity,
-          "attach",
-          ReflectionHelpers.ClassParameter.from(Context.class, baseContext),
-          ReflectionHelpers.ClassParameter.from(
-              ActivityThread.class, RuntimeEnvironment.getActivityThread()),
-          ReflectionHelpers.ClassParameter.from(Instrumentation.class, instrumentation),
-          ReflectionHelpers.ClassParameter.from(IBinder.class, null),
-          ReflectionHelpers.ClassParameter.from(int.class, 0),
-          ReflectionHelpers.ClassParameter.from(Application.class, application),
-          ReflectionHelpers.ClassParameter.from(Intent.class, intent),
-          ReflectionHelpers.ClassParameter.from(ActivityInfo.class, activityInfo),
-          ReflectionHelpers.ClassParameter.from(CharSequence.class, activityTitle),
-          ReflectionHelpers.ClassParameter.from(Activity.class, null),
-          ReflectionHelpers.ClassParameter.from(String.class, "id"),
-          ReflectionHelpers.ClassParameter.from(nonConfigurationInstancesClass, null),
-          ReflectionHelpers.ClassParameter.from(
-              Configuration.class, application.getResources().getConfiguration()),
-          ReflectionHelpers.ClassParameter.from(IVoiceInteractor.class, null)); // ADDED
-    } else if (apiLevel <= Build.VERSION_CODES.M) {
-      ReflectionHelpers.callInstanceMethod(
-          Activity.class,
-          realActivity,
-          "attach",
-          ReflectionHelpers.ClassParameter.from(Context.class, baseContext),
-          ReflectionHelpers.ClassParameter.from(
-              ActivityThread.class, RuntimeEnvironment.getActivityThread()),
-          ReflectionHelpers.ClassParameter.from(Instrumentation.class, instrumentation),
-          ReflectionHelpers.ClassParameter.from(IBinder.class, null),
-          ReflectionHelpers.ClassParameter.from(int.class, 0),
-          ReflectionHelpers.ClassParameter.from(Application.class, application),
-          ReflectionHelpers.ClassParameter.from(Intent.class, intent),
-          ReflectionHelpers.ClassParameter.from(ActivityInfo.class, activityInfo),
-          ReflectionHelpers.ClassParameter.from(CharSequence.class, activityTitle),
-          ReflectionHelpers.ClassParameter.from(Activity.class, null),
-          ReflectionHelpers.ClassParameter.from(String.class, "id"),
-          ReflectionHelpers.ClassParameter.from(nonConfigurationInstancesClass, null),
-          ReflectionHelpers.ClassParameter.from(
-              Configuration.class, application.getResources().getConfiguration()),
-          ReflectionHelpers.ClassParameter.from(String.class, "referrer"),
-          ReflectionHelpers.ClassParameter.from(
-              IVoiceInteractor.class, null)); // SAME AS LOLLIPOP ---------------------------
-    } else if (apiLevel <= Build.VERSION_CODES.N_MR1) {
-      ReflectionHelpers.callInstanceMethod(
-          Activity.class,
-          realActivity,
-          "attach",
-          ReflectionHelpers.ClassParameter.from(Context.class, baseContext),
-          ReflectionHelpers.ClassParameter.from(
-              ActivityThread.class, RuntimeEnvironment.getActivityThread()),
-          ReflectionHelpers.ClassParameter.from(Instrumentation.class, instrumentation),
-          ReflectionHelpers.ClassParameter.from(IBinder.class, null),
-          ReflectionHelpers.ClassParameter.from(int.class, 0),
-          ReflectionHelpers.ClassParameter.from(Application.class, application),
-          ReflectionHelpers.ClassParameter.from(Intent.class, intent),
-          ReflectionHelpers.ClassParameter.from(ActivityInfo.class, activityInfo),
-          ReflectionHelpers.ClassParameter.from(CharSequence.class, activityTitle),
-          ReflectionHelpers.ClassParameter.from(Activity.class, null),
-          ReflectionHelpers.ClassParameter.from(String.class, "id"),
-          ReflectionHelpers.ClassParameter.from(nonConfigurationInstancesClass, null),
-          ReflectionHelpers.ClassParameter.from(
-              Configuration.class, application.getResources().getConfiguration()),
-          ReflectionHelpers.ClassParameter.from(String.class, "referrer"),
-          ReflectionHelpers.ClassParameter.from(IVoiceInteractor.class, null),
-          ReflectionHelpers.ClassParameter.from(Window.class, null) // ADDED
-          );
-    } else if (apiLevel >= Build.VERSION_CODES.O) {
-      ReflectionHelpers.callInstanceMethod(
-          Activity.class,
-          realActivity,
-          "attach",
-          ReflectionHelpers.ClassParameter.from(Context.class, baseContext),
-          ReflectionHelpers.ClassParameter.from(
-              ActivityThread.class, RuntimeEnvironment.getActivityThread()),
-          ReflectionHelpers.ClassParameter.from(Instrumentation.class, instrumentation),
-          ReflectionHelpers.ClassParameter.from(IBinder.class, null),
-          ReflectionHelpers.ClassParameter.from(int.class, 0),
-          ReflectionHelpers.ClassParameter.from(Application.class, application),
-          ReflectionHelpers.ClassParameter.from(Intent.class, intent),
-          ReflectionHelpers.ClassParameter.from(ActivityInfo.class, activityInfo),
-          ReflectionHelpers.ClassParameter.from(CharSequence.class, activityTitle),
-          ReflectionHelpers.ClassParameter.from(Activity.class, null),
-          ReflectionHelpers.ClassParameter.from(String.class, "id"),
-          ReflectionHelpers.ClassParameter.from(nonConfigurationInstancesClass, null),
-          ReflectionHelpers.ClassParameter.from(
-              Configuration.class, application.getResources().getConfiguration()),
-          ReflectionHelpers.ClassParameter.from(String.class, "referrer"),
-          ReflectionHelpers.ClassParameter.from(IVoiceInteractor.class, null),
-          ReflectionHelpers.ClassParameter.from(Window.class, null),
-          ReflectionHelpers.ClassParameter.from(
-              ViewRootImpl.ActivityConfigCallback.class, null) // ADDED
-          );
-    } else {
-      throw new RuntimeException("Could not find AndroidRuntimeAdapter for API level: " + apiLevel);
-    }
+    ActivityThread activityThread = (ActivityThread) RuntimeEnvironment.getActivityThread();
+    Instrumentation instrumentation = (activityThread).getInstrumentation();
+
+    doCallAttach(
+        baseContext, activityThread, instrumentation, application, intent, activityInfo,
+        activityTitle);
 
     int theme = activityInfo.getThemeResource();
     if (theme != 0) {
@@ -218,11 +108,39 @@ public class ShadowActivity extends ShadowContextThemeWrapper {
     }
   }
 
-  private Class<?> getNonConfigurationClass() {
-    try {
-      return getClass().getClassLoader().loadClass("android.app.Activity$NonConfigurationInstances");
-    } catch (ClassNotFoundException e) {
-      throw new RuntimeException(e);
+  // it'd be cool if this could've been a default method on _Activity_, but Java hates us.
+  private void doCallAttach(Context baseContext, ActivityThread activityThread,
+      Instrumentation instrumentation, Application application, Intent intent,
+      ActivityInfo activityInfo, CharSequence activityTitle) {
+    int apiLevel = RuntimeEnvironment.getApiLevel();
+    _Activity_ accessor = accessorFor(_Activity_.class, realActivity);
+    if (apiLevel <= Build.VERSION_CODES.KITKAT) {
+      accessor.attach(
+          baseContext, activityThread, instrumentation, null, 0, application, intent,
+          activityInfo, activityTitle, null, "id", null,
+          application.getResources().getConfiguration());
+    } else if (apiLevel <= Build.VERSION_CODES.LOLLIPOP) {
+      accessor.attach(
+          baseContext, activityThread, instrumentation, null, 0, application, intent,
+          activityInfo, activityTitle, null, "id", null,
+          application.getResources().getConfiguration(), null);
+    } else if (apiLevel <= Build.VERSION_CODES.M) {
+      accessor.attach(
+          baseContext, activityThread, instrumentation, null, 0, application, intent,
+          activityInfo, activityTitle, null, "id", null,
+          application.getResources().getConfiguration(), "referrer", null);
+    } else if (apiLevel <= Build.VERSION_CODES.N_MR1) {
+      accessor.attach(
+          baseContext, activityThread, instrumentation, null, 0, application, intent,
+          activityInfo, activityTitle, null, "id", null,
+          application.getResources().getConfiguration(), "referrer", null, null);
+    } else if (apiLevel >= Build.VERSION_CODES.O) {
+      accessor.attach(
+          baseContext, activityThread, instrumentation, null, 0, application, intent,
+          activityInfo, activityTitle, null, "id", null,
+          application.getResources().getConfiguration(), "referrer", null, null, null);
+    } else {
+      throw new RuntimeException("Could not find AndroidRuntimeAdapter for API level: " + apiLevel);
     }
   }
 
@@ -404,7 +322,7 @@ public class ShadowActivity extends ShadowContextThemeWrapper {
    * @return the {@code contentView} set by one of the {@code setContentView()} methods
    */
   public View getContentView() {
-    return ((ViewGroup) getWindow().findViewById(R.id.content)).getChildAt(0);
+    return ((ViewGroup) getWindow().findViewById(android.R.id.content)).getChildAt(0);
   }
 
   /**
@@ -746,4 +664,106 @@ public class ShadowActivity extends ShadowContextThemeWrapper {
       this.requestCode = requestCode;
     }
   }
+
+  /** Accessor interface for {@link Activity}'s private methods. */
+  @ForType(Activity.class)
+  public interface _Activity_ {
+
+    // <= KITKAT:
+    void attach(
+        Context context,
+        ActivityThread activityThread,
+        Instrumentation instrumentation,
+        IBinder token,
+        int ident,
+        Application application,
+        Intent intent,
+        ActivityInfo activityInfo,
+        CharSequence title,
+        Activity parent,
+        String id,
+        @WithType("android.app.Activity$NonConfigurationInstances")
+            Object lastNonConfigurationInstances,
+        Configuration configuration);
+
+    // <= LOLLIPOP:
+    void attach(
+        Context context,
+        ActivityThread activityThread,
+        Instrumentation instrumentation,
+        IBinder token,
+        int ident,
+        Application application,
+        Intent intent,
+        ActivityInfo activityInfo,
+        CharSequence title,
+        Activity parent,
+        String id,
+        @WithType("android.app.Activity$NonConfigurationInstances")
+            Object lastNonConfigurationInstances,
+        Configuration configuration,
+        IVoiceInteractor iVoiceInteractor);
+
+    // <= M
+    void attach(
+        Context context,
+        ActivityThread activityThread,
+        Instrumentation instrumentation,
+        IBinder token,
+        int ident,
+        Application application,
+        Intent intent,
+        ActivityInfo activityInfo,
+        CharSequence title,
+        Activity parent,
+        String id,
+        @WithType("android.app.Activity$NonConfigurationInstances")
+            Object lastNonConfigurationInstances,
+        Configuration configuration,
+        String referer,
+        IVoiceInteractor iVoiceInteractor);
+
+    // <= N_MR1
+    void attach(
+        Context context,
+        ActivityThread activityThread,
+        Instrumentation instrumentation,
+        IBinder token,
+        int ident,
+        Application application,
+        Intent intent,
+        ActivityInfo activityInfo,
+        CharSequence title,
+        Activity parent,
+        String id,
+        @WithType("android.app.Activity$NonConfigurationInstances")
+            Object lastNonConfigurationInstances,
+        Configuration configuration,
+        String referer,
+        IVoiceInteractor iVoiceInteractor,
+        Window window);
+
+    // => O
+    void attach(
+        Context context,
+        ActivityThread activityThread,
+        Instrumentation instrumentation,
+        IBinder token,
+        int ident,
+        Application application,
+        Intent intent,
+        ActivityInfo activityInfo,
+        CharSequence title,
+        Activity parent,
+        String id,
+        @WithType("android.app.Activity$NonConfigurationInstances")
+            Object lastNonConfigurationInstances,
+        Configuration configuration,
+        String referer,
+        IVoiceInteractor iVoiceInteractor,
+        Window window,
+        ViewRootImpl.ActivityConfigCallback activityConfigCallback);
+
+  }
+
 }

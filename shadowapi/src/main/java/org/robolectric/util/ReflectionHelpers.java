@@ -1,6 +1,12 @@
 package org.robolectric.util;
 
 import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.lang.invoke.MethodHandles;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
@@ -8,15 +14,19 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 /**
  * Collection of helper methods for calling methods and accessing fields reflectively.
  */
-@SuppressWarnings(value = {"unchecked", "TypeParameterUnusedInFormals"})
+@SuppressWarnings(value = {"unchecked", "TypeParameterUnusedInFormals", "NewApi"})
 public class ReflectionHelpers {
+
   private static final Map<String, Object> PRIMITIVE_RETURN_VALUES;
 
   static {
@@ -33,12 +43,183 @@ public class ReflectionHelpers {
 
   public static <T> T createNullProxy(Class<T> clazz) {
     return (T) Proxy.newProxyInstance(clazz.getClassLoader(),
-        new Class[]{clazz}, new InvocationHandler() {
-          @Override
-          public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            return PRIMITIVE_RETURN_VALUES.get(method.getReturnType().getName());
+        new Class[]{clazz},
+        (proxy, method, args) -> PRIMITIVE_RETURN_VALUES.get(method.getReturnType().getName()));
+  }
+
+  @Target(ElementType.TYPE)
+  @Retention(RetentionPolicy.RUNTIME)
+  public @interface ForType {
+    Class<?> value();
+  }
+
+  @Target(ElementType.PARAMETER)
+  @Retention(RetentionPolicy.RUNTIME)
+  public @interface WithType {
+    String value();
+  }
+
+  /**
+   * Values are held via {@link WeakReference}, so if any class becomes otherwise unreachable
+   * it can be garbage collected.
+   */
+  private static class WeakerHashMap<K, V> implements Map<K, V> {
+
+    public final Map<K, WeakReference<V>> map = new WeakHashMap<>();
+
+    @Override
+    public int size() {
+      return map.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return map.isEmpty();
+    }
+
+    @Override
+    public boolean containsKey(Object key) {
+      return map.containsKey(key);
+    }
+
+    @Override
+    public boolean containsValue(Object value) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public V get(Object key) {
+      WeakReference<V> ref = map.get(key);
+      if (ref != null) {
+        V v = ref.get();
+        if (v == null) {
+          map.remove(key);
+        }
+        return v;
+      }
+      return null;
+    }
+
+    @Override
+    public V put(K key, V value) {
+      WeakReference<V> oldV = map.put(key, new WeakReference<>(value));
+      return oldV == null ? null : oldV.get();
+    }
+
+    @Override
+    public V remove(Object key) {
+      WeakReference<V> oldV = map.remove(key);
+      return oldV == null ? null : oldV.get();
+    }
+
+    @Override
+    public void putAll(Map<? extends K, ? extends V> m) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void clear() {
+      map.clear();
+    }
+
+    @Override
+    public Set<K> keySet() {
+      return map.keySet();
+    }
+
+    @Override
+    public Collection<V> values() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<Entry<K, V>> entrySet() {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  private static final Map<Class<?>, Constructor<?>> PROXY_CACHE =
+      Collections.synchronizedMap(new WeakerHashMap<>());
+  private static final Map<Method, Method> METHOD_CACHE =
+      Collections.synchronizedMap(new WeakerHashMap<>());
+
+  /**
+   * Returns an object which provides accessors for invoking otherwise inaccessible methods.
+   * @param iClass an interface with methods matching private methods on the target
+   * @param target the target object
+   */
+  public static <T> T accessorFor(Class<T> iClass, Object target) {
+    ForType forType = iClass.getAnnotation(ForType.class);
+    Class<?> targetClass = forType == null ? target.getClass() : forType.value();
+
+    InvocationHandler h = (proxy, method, args) -> {
+      if (method.isDefault()) {
+        method.setAccessible(true);
+        Class<?> declaringClass = method.getDeclaringClass();
+        return MethodHandles.lookup()
+            .in(declaringClass)
+            .unreflectSpecial(method, declaringClass)
+            .bindTo(proxy)
+            .invokeWithArguments(args);
+      }
+
+      Method targetMethod = METHOD_CACHE.computeIfAbsent(method,
+          m -> {
+            String name = method.getName();
+            Class<?>[] parameterTypes = method.getParameterTypes();
+            try {
+              Method resolvedMethod = targetClass.getDeclaredMethod(name, parameterTypes);
+              resolvedMethod.setAccessible(true);
+              return resolvedMethod;
+            } catch (NoSuchMethodException e) {
+              // try again...
+            }
+
+            Annotation[][] paramAnnotations = method.getParameterAnnotations();
+            resolveParamTypes(iClass, parameterTypes, paramAnnotations);
+
+            try {
+              Method resolvedMethod = targetClass.getDeclaredMethod(name, parameterTypes);
+              resolvedMethod.setAccessible(true);
+              return resolvedMethod;
+            } catch (NoSuchMethodException e) {
+              throw new IllegalArgumentException(e);
+            }
+          });
+      return targetMethod.invoke(target, args);
+    };
+
+    Constructor<?> proxyCtor = PROXY_CACHE.get(iClass);
+    try {
+      if (proxyCtor != null) {
+        return (T) proxyCtor.newInstance(h);
+      }
+
+      T proxy = (T) Proxy.newProxyInstance(iClass.getClassLoader(), new Class[]{iClass}, h);
+      Constructor<?> ctor = proxy.getClass().getConstructor(InvocationHandler.class);
+      ctor.setAccessible(true);
+      PROXY_CACHE.put(iClass, ctor);
+      return proxy;
+    } catch (NoSuchMethodException | InstantiationException
+        | IllegalAccessException | InvocationTargetException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static <T> void resolveParamTypes(Class<T> iClass, Class<?>[] parameterTypes,
+      Annotation[][] paramAnnotations) {
+    for (int i = 0; i < parameterTypes.length; i++) {
+      for (Annotation annotation : paramAnnotations[i]) {
+        if (annotation instanceof WithType) {
+          String withTypeName = ((WithType) annotation).value();
+          try {
+            parameterTypes[i] = Class.forName(withTypeName, true, iClass.getClassLoader());
+          } catch (ClassNotFoundException e1) {
+            throw new IllegalArgumentException(e1);
           }
-        });
+        }
+      }
+    }
   }
 
   /**
