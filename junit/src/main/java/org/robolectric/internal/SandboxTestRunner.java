@@ -116,28 +116,6 @@ public class SandboxTestRunner extends BlockJUnit4ClassRunner {
   protected void afterClass() {
   }
 
-  @Override
-  protected void runChild(FrameworkMethod method, RunNotifier notifier) {
-    Description description = describeChild(method);
-    EachTestNotifier eachNotifier = new EachTestNotifier(notifier, description);
-
-    if (shouldIgnore(method)) {
-      eachNotifier.fireTestIgnored();
-    } else {
-      eachNotifier.fireTestStarted();
-
-      try {
-        methodBlock(method).evaluate();
-      } catch (AssumptionViolatedException e) {
-        eachNotifier.addFailedAssumption(e);
-      } catch (Throwable e) {
-        eachNotifier.addFailure(e);
-      } finally {
-        eachNotifier.fireTestFinished();
-      }
-    }
-  }
-
   @Nonnull
   protected Sandbox getSandbox(FrameworkMethod method) {
     InstrumentationConfiguration instrumentationConfiguration = createClassLoaderConfig(method);
